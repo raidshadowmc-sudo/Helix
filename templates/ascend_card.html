@@ -1,0 +1,1068 @@
+
+<div class="ascend-performance-card">
+    <!-- Header with player info and overall tier -->
+    <div class="ascend-header">
+        <div class="ascend-player-info">
+            <div class="ascend-avatar-container">
+                <img src="{{ player.minecraft_skin_url }}" alt="{{ player.nickname }}" class="ascend-avatar">
+                <div class="ascend-avatar-glow"></div>
+            </div>
+            <div class="ascend-player-details">
+                <h3 class="ascend-nickname">{{ player.nickname }}</h3>
+                <div class="ascend-tier-badge" id="overall-tier-badge">
+                    <span class="tier-rank tier-d" id="overall-tier-text">D TIER</span>
+                    <div class="tier-glow"></div>
+                </div>
+                <div class="ascend-gamemode">
+                    <span class="gamemode-label">GAMEMODE</span>
+                    <span class="gamemode-value">Bedwars</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance summary -->
+        <div class="ascend-summary">
+            <div class="summary-item">
+                <span class="summary-label">AVERAGE SCORE</span>
+                <span class="summary-value" id="average-score">25</span>
+            </div>
+            <div class="summary-item">
+                <span class="summary-label">LAST UPDATED</span>
+                <span class="summary-value" id="last-updated">N/A</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="ascend-stats-grid" id="ascend-stats-container">
+        <!-- Will be populated by JavaScript -->
+    </div>
+
+    <!-- Comment section -->
+    <div class="ascend-comment-section">
+        <div class="comment-header">
+            <span class="comment-label">ASCEND EVALUATION</span>
+            <div class="comment-icon">
+                <i class="fas fa-quote-left"></i>
+            </div>
+        </div>
+        <div class="comment-text" id="ascend-comment">
+            <div class="loading-placeholder">
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+                <div class="loading-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer with evaluator and history -->
+    <div class="ascend-footer">
+        <div class="evaluator-info">
+            <span class="evaluator-label">EVALUATED BY</span>
+            <div class="evaluator-details">
+                <div class="evaluator-avatar-container">
+                    <img src="https://mc-heads.net/avatar/EliteSquad/24" alt="Elite Squad" class="evaluator-avatar" id="evaluator-avatar">
+                    <div class="evaluator-avatar-glow"></div>
+                </div>
+                <span class="evaluator-name" id="ascend-evaluator">Elite Squad</span>
+            </div>
+        </div>
+        
+        <div class="tier-history">
+            <span class="tier-label">PREVIOUS TIER</span>
+            <span class="previous-tier" id="ascend-previous">
+                <span class="tier-badge">N/A</span>
+            </span>
+        </div>
+        
+        <div class="ascend-actions">
+            <button class="btn btn-sm btn-outline-warning" onclick="showASCENDHistory()" title="История изменений">
+                <i class="fas fa-history"></i>
+            </button>
+            {% if is_admin %}
+            <button class="btn btn-sm btn-outline-info" onclick="editASCENDData()" title="Редактировать">
+                <i class="fas fa-edit"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Branding -->
+    <div class="ascend-branding">
+        <div class="brand-logo">
+            <div class="logo-circle">
+                <i class="fas fa-arrow-up"></i>
+            </div>
+            <span class="brand-name">Elite Squad ASCEND</span>
+        </div>
+        <div class="brand-info">
+            <span class="brand-link">elite-squad.bedwars</span>
+            <span class="brand-version">v2.0</span>
+        </div>
+    </div>
+</div>
+
+<!-- ASCEND History Modal -->
+<div class="modal fade" id="ascendHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">
+                    <i class="fas fa-history text-warning me-2"></i>История ASCEND оценок
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="ascendHistoryContent">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                        <p>Загрузка истории...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const playerId = {{ player.id }};
+    loadASCENDData(playerId);
+    
+    // Listen for ASCEND updates from admin panel
+    window.addEventListener('ascend-updated', function() {
+        setTimeout(() => loadASCENDData(playerId), 500);
+    });
+    
+    // Initialize tooltips
+    if (typeof bootstrap !== 'undefined') {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+});
+
+function loadASCENDData(playerId) {
+    console.log('🎯 Loading ASCEND data for player:', playerId);
+    
+    // Show loading state
+    showLoadingState();
+    
+    fetch(`/api/player/${playerId}/ascend-data?t=${Date.now()}`, {
+        method: 'GET',
+        headers: {
+            'Cache-Control': 'no-cache'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('🎯 ASCEND API response:', data);
+        if (data.success) {
+            updateASCENDCard(data.ascend);
+        } else {
+            console.error('❌ Failed to load ASCEND data:', data.error);
+            showDefaultASCENDData();
+        }
+    })
+    .catch(error => {
+        console.error('❌ Error loading ASCEND data:', error);
+        showDefaultASCENDData();
+    });
+}
+
+function showLoadingState() {
+    const statsContainer = document.getElementById('ascend-stats-container');
+    if (statsContainer) {
+        statsContainer.innerHTML = `
+            <div class="ascend-stat-row loading">
+                <div class="stat-name-skeleton"></div>
+                <div class="stat-bar-skeleton"></div>
+            </div>
+            <div class="ascend-stat-row loading">
+                <div class="stat-name-skeleton"></div>
+                <div class="stat-bar-skeleton"></div>
+            </div>
+            <div class="ascend-stat-row loading">
+                <div class="stat-name-skeleton"></div>
+                <div class="stat-bar-skeleton"></div>
+            </div>
+            <div class="ascend-stat-row loading">
+                <div class="stat-name-skeleton"></div>
+                <div class="stat-bar-skeleton"></div>
+            </div>
+        `;
+    }
+}
+
+function updateASCENDCard(ascendData) {
+    console.log('🎯 Updating ASCEND card with data:', ascendData);
+    
+    const statsContainer = document.getElementById('ascend-stats-container');
+    const commentElement = document.getElementById('ascend-comment');
+    const evaluatorElement = document.getElementById('ascend-evaluator');
+    const previousElement = document.getElementById('ascend-previous');
+    const averageScoreElement = document.getElementById('average-score');
+    const lastUpdatedElement = document.getElementById('last-updated');
+    
+    // Calculate average score
+    const avgScore = Math.round((ascendData.pvp_score + ascendData.clutching_score + 
+                                ascendData.block_placement_score + ascendData.gamesense_score) / 4);
+    
+    // Update average score
+    if (averageScoreElement) {
+        averageScoreElement.textContent = avgScore;
+        averageScoreElement.className = `summary-value tier-${getTierClass(avgScore)}`;
+    }
+    
+    // Update last updated
+    if (lastUpdatedElement && ascendData.updated_at) {
+        const date = new Date(ascendData.updated_at);
+        lastUpdatedElement.textContent = date.toLocaleDateString('ru-RU');
+    }
+    
+    // Update stats
+    const stats = [
+        { name: 'PVP', tier: ascendData.pvp_tier, score: ascendData.pvp_score, icon: 'fas fa-sword' },
+        { name: 'CLUTCHING', tier: ascendData.clutching_tier, score: ascendData.clutching_score, icon: 'fas fa-fire' },
+        { name: 'BLOCK PLACEMENT', tier: ascendData.block_placement_tier, score: ascendData.block_placement_score, icon: 'fas fa-cube' },
+        { name: 'GAMESENSE', tier: ascendData.gamesense_tier, score: ascendData.gamesense_score, icon: 'fas fa-brain' }
+    ];
+    
+    if (statsContainer) {
+        statsContainer.innerHTML = stats.map(stat => `
+            <div class="ascend-stat-row">
+                <div class="stat-info">
+                    <i class="${stat.icon} stat-icon"></i>
+                    <span class="stat-name">${stat.name}</span>
+                </div>
+                <div class="stat-bar-container">
+                    <div class="stat-bar">
+                        <div class="stat-fill tier-${getTierClass(stat.tier)}" 
+                             style="width: ${Math.min(stat.score, 100)}%">
+                            <div class="stat-fill-glow"></div>
+                        </div>
+                    </div>
+                    <span class="stat-tier tier-${getTierClass(stat.tier)}">${stat.tier}</span>
+                    <span class="stat-score">${stat.score}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    // Update overall tier in header
+    const tierBadge = document.getElementById('overall-tier-text');
+    const tierBadgeContainer = document.getElementById('overall-tier-badge');
+    if (tierBadge && tierBadgeContainer) {
+        tierBadge.textContent = `${ascendData.overall_tier} TIER`;
+        tierBadge.className = `tier-rank tier-${getTierClass(ascendData.overall_tier)}`;
+        tierBadgeContainer.className = `ascend-tier-badge tier-${getTierClass(ascendData.overall_tier)}`;
+    }
+    
+    // Update comment
+    if (commentElement) {
+        if (ascendData.comment && ascendData.comment.trim()) {
+            commentElement.innerHTML = `<p>${ascendData.comment}</p>`;
+        } else {
+            commentElement.innerHTML = '<p class="text-muted">Комментарий не добавлен</p>';
+        }
+    }
+    
+    // Update evaluator
+    if (evaluatorElement) {
+        evaluatorElement.textContent = ascendData.evaluator_name || 'Elite Squad';
+    }
+    
+    // Update previous tier
+    if (previousElement) {
+        const previousTier = ascendData.previous_tier;
+        if (previousTier && previousTier !== ascendData.overall_tier) {
+            previousElement.innerHTML = `<span class="tier-badge tier-${getTierClass(previousTier)}">${previousTier}</span>`;
+        } else {
+            previousElement.innerHTML = '<span class="tier-badge tier-none">N/A</span>';
+        }
+    }
+    
+    // Add animation classes
+    setTimeout(() => {
+        const statRows = document.querySelectorAll('.ascend-stat-row');
+        statRows.forEach((row, index) => {
+            setTimeout(() => {
+                row.classList.add('animate-in');
+            }, index * 100);
+        });
+    }, 100);
+}
+
+function getTierClass(tier) {
+    const tierMap = {
+        'S+': 's-plus',
+        'S': 's',
+        'A+': 'a-plus',
+        'A': 'a',
+        'B+': 'b-plus',
+        'B': 'b',
+        'C+': 'c-plus',
+        'C': 'c',
+        'D': 'd'
+    };
+    return tierMap[tier] || 'd';
+}
+
+function showDefaultASCENDData() {
+    console.log('🎯 Showing default ASCEND data');
+    const statsContainer = document.getElementById('ascend-stats-container');
+    if (statsContainer) {
+        statsContainer.innerHTML = `
+            <div class="ascend-stat-row">
+                <div class="stat-info">
+                    <i class="fas fa-sword stat-icon"></i>
+                    <span class="stat-name">PVP</span>
+                </div>
+                <div class="stat-bar-container">
+                    <div class="stat-bar">
+                        <div class="stat-fill tier-d" style="width: 25%">
+                            <div class="stat-fill-glow"></div>
+                        </div>
+                    </div>
+                    <span class="stat-tier tier-d">D</span>
+                    <span class="stat-score">25</span>
+                </div>
+            </div>
+            <div class="ascend-stat-row">
+                <div class="stat-info">
+                    <i class="fas fa-fire stat-icon"></i>
+                    <span class="stat-name">CLUTCHING</span>
+                </div>
+                <div class="stat-bar-container">
+                    <div class="stat-bar">
+                        <div class="stat-fill tier-d" style="width: 25%">
+                            <div class="stat-fill-glow"></div>
+                        </div>
+                    </div>
+                    <span class="stat-tier tier-d">D</span>
+                    <span class="stat-score">25</span>
+                </div>
+            </div>
+            <div class="ascend-stat-row">
+                <div class="stat-info">
+                    <i class="fas fa-cube stat-icon"></i>
+                    <span class="stat-name">BLOCK PLACEMENT</span>
+                </div>
+                <div class="stat-bar-container">
+                    <div class="stat-bar">
+                        <div class="stat-fill tier-d" style="width: 25%">
+                            <div class="stat-fill-glow"></div>
+                        </div>
+                    </div>
+                    <span class="stat-tier tier-d">D</span>
+                    <span class="stat-score">25</span>
+                </div>
+            </div>
+            <div class="ascend-stat-row">
+                <div class="stat-info">
+                    <i class="fas fa-brain stat-icon"></i>
+                    <span class="stat-name">GAMESENSE</span>
+                </div>
+                <div class="stat-bar-container">
+                    <div class="stat-bar">
+                        <div class="stat-fill tier-d" style="width: 25%">
+                            <div class="stat-fill-glow"></div>
+                        </div>
+                    </div>
+                    <span class="stat-tier tier-d">D</span>
+                    <span class="stat-score">25</span>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function showASCENDHistory() {
+    const modal = new bootstrap.Modal(document.getElementById('ascendHistoryModal'));
+    modal.show();
+    
+    // Load history data here
+    loadASCENDHistory();
+}
+
+function editASCENDData() {
+    // This will be handled by the admin panel
+    if (typeof window.editASCENDData === 'function') {
+        window.editASCENDData();
+    } else {
+        // Fallback: scroll to admin section
+        const adminSection = document.querySelector('.ascend-editor');
+        if (adminSection) {
+            adminSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+}
+
+function loadASCENDHistory() {
+    // Placeholder for history loading
+    const historyContent = document.getElementById('ascendHistoryContent');
+    if (historyContent) {
+        historyContent.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-info-circle fa-2x mb-3"></i>
+                <p>История изменений будет доступна в следующем обновлении</p>
+            </div>
+        `;
+    }
+}
+
+// Make function globally available for admin panel
+window.reloadASCENDData = function(playerId) {
+    loadASCENDData(playerId);
+};
+</script>
+
+<style>
+.ascend-performance-card {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    border-radius: 20px;
+    padding: 2.5rem;
+    color: white;
+    max-width: 700px;
+    margin: 0 auto;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.ascend-performance-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #0abde3, #54a0ff);
+    animation: gradientShift 3s ease infinite;
+}
+
+.ascend-performance-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 20% 80%, rgba(255, 193, 7, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(72, 219, 251, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+/* Header Styles */
+.ascend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.ascend-player-info {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.ascend-avatar-container {
+    position: relative;
+}
+
+.ascend-avatar {
+    width: 90px;
+    height: 90px;
+    border-radius: 12px;
+    image-rendering: pixelated;
+    border: 3px solid rgba(255, 193, 7, 0.3);
+    transition: all 0.3s ease;
+    z-index: 2;
+    position: relative;
+}
+
+.ascend-avatar:hover {
+    transform: scale(1.05);
+    border-color: rgba(255, 193, 7, 0.6);
+}
+
+.ascend-avatar-glow {
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    right: -10px;
+    bottom: -10px;
+    background: radial-gradient(circle, rgba(255, 193, 7, 0.3) 0%, transparent 70%);
+    border-radius: 16px;
+    filter: blur(10px);
+    animation: avatarGlow 2s ease-in-out infinite alternate;
+}
+
+.ascend-player-details h3 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin: 0 0 0.8rem 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+    background: linear-gradient(45deg, #fff, #f0f0f0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ascend-tier-badge {
+    margin-bottom: 0.8rem;
+    position: relative;
+}
+
+.tier-rank {
+    font-size: 1.3rem;
+    font-weight: 800;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+    z-index: 2;
+}
+
+.tier-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 8px;
+    filter: blur(8px);
+    opacity: 0.6;
+    z-index: 1;
+}
+
+/* Tier Colors */
+.tier-s-plus .tier-glow { background: linear-gradient(45deg, #ff6b6b, #feca57); }
+.tier-s .tier-glow { background: linear-gradient(45deg, #a55eea, #26de81); }
+.tier-a-plus .tier-glow { background: linear-gradient(45deg, #3742fa, #70a1ff); }
+.tier-a .tier-glow { background: linear-gradient(45deg, #2ed573, #7bed9f); }
+.tier-b-plus .tier-glow { background: linear-gradient(45deg, #ff9ff3, #f368e0); }
+.tier-b .tier-glow { background: linear-gradient(45deg, #ff9f43, #feca57); }
+.tier-c-plus .tier-glow { background: linear-gradient(45deg, #70a1ff, #7bed9f); }
+.tier-c .tier-glow { background: linear-gradient(45deg, #a4b0be, #c8d6e5); }
+.tier-d .tier-glow { background: linear-gradient(45deg, #576574, #8395a7); }
+
+.tier-s-plus { background: linear-gradient(45deg, #ff6b6b, #feca57); color: #000; }
+.tier-s { background: linear-gradient(45deg, #a55eea, #26de81); color: #000; }
+.tier-a-plus { background: linear-gradient(45deg, #3742fa, #70a1ff); color: #fff; }
+.tier-a { background: linear-gradient(45deg, #2ed573, #7bed9f); color: #000; }
+.tier-b-plus { background: linear-gradient(45deg, #ff9ff3, #f368e0); color: #000; }
+.tier-b { background: linear-gradient(45deg, #ff9f43, #feca57); color: #000; }
+.tier-c-plus { background: linear-gradient(45deg, #70a1ff, #7bed9f); color: #000; }
+.tier-c { background: linear-gradient(45deg, #a4b0be, #c8d6e5); color: #000; }
+.tier-d { background: linear-gradient(45deg, #576574, #8395a7); color: #fff; }
+
+.ascend-gamemode {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.gamemode-label {
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.gamemode-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #48dbfb;
+}
+
+/* Summary Section */
+.ascend-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    text-align: right;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.summary-label {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.2rem;
+}
+
+.summary-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+/* Stats Grid */
+.ascend-stats-grid {
+    margin-bottom: 2.5rem;
+}
+
+.ascend-stat-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    gap: 1.5rem;
+    padding: 1rem;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.ascend-stat-row.animate-in {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.ascend-stat-row:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255, 193, 7, 0.2);
+    transform: translateY(-2px);
+}
+
+.stat-info {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex: 0 0 180px;
+}
+
+.stat-icon {
+    font-size: 1.2rem;
+    color: #48dbfb;
+    width: 20px;
+    text-align: center;
+}
+
+.stat-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-bar-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stat-bar {
+    flex: 1;
+    height: 16px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+}
+
+.stat-fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 1s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-fill-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: fillGlow 2s ease-in-out infinite;
+}
+
+.stat-tier {
+    flex: 0 0 50px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.stat-score {
+    flex: 0 0 40px;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.7);
+    text-align: center;
+}
+
+/* Comment Section */
+.ascend-comment-section {
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid #48dbfb;
+    position: relative;
+    overflow: hidden;
+}
+
+.ascend-comment-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 30% 70%, rgba(72, 219, 251, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.comment-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #48dbfb;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.comment-icon {
+    width: 32px;
+    height: 32px;
+    background: rgba(72, 219, 251, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #48dbfb;
+}
+
+.comment-text {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.9);
+}
+
+.comment-text p {
+    margin: 0;
+}
+
+/* Loading Placeholder */
+.loading-placeholder {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.loading-bar {
+    height: 12px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+}
+
+.loading-bar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: loading 1.5s ease-in-out infinite;
+}
+
+/* Footer */
+.ascend-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+}
+
+.evaluator-info, .tier-history {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.evaluator-label, .tier-label {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.evaluator-details {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.evaluator-avatar-container {
+    position: relative;
+}
+
+.evaluator-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    image-rendering: pixelated;
+    border: 2px solid rgba(255, 193, 7, 0.3);
+}
+
+.evaluator-avatar-glow {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    background: radial-gradient(circle, rgba(255, 193, 7, 0.2) 0%, transparent 70%);
+    border-radius: 10px;
+    filter: blur(6px);
+}
+
+.evaluator-name, .previous-tier {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.tier-badge {
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.tier-badge.tier-none {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.6);
+}
+
+.ascend-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.ascend-actions .btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.ascend-actions .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+/* Branding */
+.ascend-branding {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.brand-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.logo-circle {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: white;
+    font-weight: bold;
+}
+
+.brand-name {
+    font-size: 1.2rem;
+    font-weight: 800;
+    background: linear-gradient(45deg, #fff, #f0f0f0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.brand-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+}
+
+.brand-link {
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.7);
+}
+
+.brand-version {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+
+/* Animations */
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes avatarGlow {
+    0% { opacity: 0.3; transform: scale(1); }
+    100% { opacity: 0.6; transform: scale(1.1); }
+}
+
+@keyframes fillGlow {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+@keyframes loading {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* Loading Skeleton */
+.ascend-stat-row.loading {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.stat-name-skeleton {
+    width: 120px;
+    height: 16px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+    animation: loading 1.5s ease-in-out infinite;
+}
+
+.stat-bar-skeleton {
+    flex: 1;
+    height: 16px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+    animation: loading 1.5s ease-in-out infinite;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .ascend-performance-card {
+        padding: 1.5rem;
+        margin: 1rem;
+    }
+    
+    .ascend-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .ascend-player-info {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+    
+    .ascend-avatar {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .ascend-player-details h3 {
+        font-size: 1.8rem;
+    }
+    
+    .ascend-summary {
+        text-align: center;
+        align-items: center;
+    }
+    
+    .stat-info {
+        flex: 0 0 140px;
+    }
+    
+    .stat-name {
+        font-size: 0.8rem;
+    }
+    
+    .ascend-footer {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .ascend-branding {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .brand-info {
+        align-items: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .ascend-performance-card {
+        padding: 1rem;
+    }
+    
+    .ascend-stat-row {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .stat-info {
+        flex: none;
+        justify-content: center;
+    }
+    
+    .stat-bar-container {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+</style>

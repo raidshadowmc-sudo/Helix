@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+
+{% block title %}Управление бейджами - Админ панель{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="page-title">
+            <i class="fas fa-medal text-warning me-2 glow-effect"></i>Управление бейджами
+        </h2>
+        <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Назад в админ панель
+        </a>
+    </div>
+
+    <!-- Create Badge Form -->
+    <div class="admin-form-card mb-4">
+        <h4 class="text-warning mb-3">
+            <i class="fas fa-plus-circle me-2"></i>Создать новый бейдж
+        </h4>
+        <form method="POST" action="{{ url_for('create_badge') }}">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label required">Системное название</label>
+                    <input type="text" class="form-control" name="name" required
+                           placeholder="Например: champion_badge">
+                    <div class="form-text">Только латинские буквы, цифры и подчеркивания</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label required">Отображаемое название</label>
+                    <input type="text" class="form-control" name="display_name" required
+                           placeholder="Например: Чемпион">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Описание</label>
+                    <textarea class="form-control" name="description" rows="2"
+                              placeholder="Описание бейджа"></textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Иконка (Font Awesome)</label>
+                    <input type="text" class="form-control" name="icon" value="fas fa-medal"
+                           placeholder="fas fa-medal">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Эмодзи (текст)</label>
+                    <input type="text" class="form-control" name="emoji"
+                           placeholder="🏆" maxlength="10">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Кастомный эмодзи (URL)</label>
+                    <input type="text" class="form-control" name="emoji_url"
+                           placeholder="https://example.com/emoji.png">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Редкость</label>
+                    <select class="form-select" name="rarity">
+                        <option value="common">Обычный</option>
+                        <option value="rare">Редкий</option>
+                        <option value="epic">Эпический</option>
+                        <option value="legendary">Легендарный</option>
+                        <option value="mythic">Мифический</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Цвет текста</label>
+                    <input type="color" class="form-control form-control-color" name="color" value="#ffffff">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Цвет фона</label>
+                    <input type="color" class="form-control form-control-color" name="background_color" value="#343a40">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Цвет рамки</label>
+                    <input type="color" class="form-control form-control-color" name="border_color" value="#ffd700">
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="has_gradient" id="hasGradient">
+                        <label class="form-check-label" for="hasGradient">
+                            Градиентный бейдж
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_animated" id="isAnimated">
+                        <label class="form-check-label" for="isAnimated">
+                            Анимированный бейдж
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6" id="gradientStart" style="display: none;">
+                    <label class="form-label">Начальный цвет градиента</label>
+                    <input type="color" class="form-control form-control-color" name="gradient_start" value="#ffc107">
+                </div>
+                <div class="col-md-6" id="gradientEnd" style="display: none;">
+                    <label class="form-label">Конечный цвет градиента</label>
+                    <input type="color" class="form-control form-control-color" name="gradient_end" value="#ff9800">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Создать бейдж
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Assign Badge Form -->
+    <div class="admin-form-card mb-4">
+        <h4 class="text-info mb-3">
+            <i class="fas fa-user-plus me-2"></i>Присвоить бейдж игроку
+        </h4>
+        <form method="POST" action="{{ url_for('assign_badge') }}">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label required">Игрок</label>
+                    <select class="form-select" name="player_id" required>
+                        <option value="">Выберите игрока</option>
+                        {% for player in players %}
+                        <option value="{{ player.id }}">{{ player.nickname }} (Уровень {{ player.level }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label required">Бейдж</label>
+                    <select class="form-select" name="badge_id" required>
+                        <option value="">Выберите бейдж</option>
+                        {% for stat in badge_stats %}
+                        {% if stat.badge.is_active %}
+                        <option value="{{ stat.badge.id }}">{{ stat.badge.display_name }} ({{ stat.assigned_count }} игроков)</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-info">
+                        <i class="fas fa-plus me-2"></i>Присвоить бейдж
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Existing Badges -->
+        <div class="card bg-dark border-secondary mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>Существующие бейджи ({{ badges|length }})
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if badges and badges|length > 0 %}
+                    <div class="row">
+                        {% for badge in badges %}
+                        <div class="col-lg-4 col-md-6 mb-3">
+                            <div class="badge-preview-card">
+                                <div class="badge-display {% if badge.is_animated %}badge-animated{% endif %}" 
+                                     style="{% if badge.has_gradient and badge.gradient_start and badge.gradient_end %}background: linear-gradient(45deg, {{ badge.gradient_start }}, {{ badge.gradient_end }});{% else %}background-color: {{ badge.background_color }};{% endif %} color: {{ badge.color }}; border: 2px solid {{ badge.border_color }};">
+                                    {% if badge.display_emoji %}
+                                        {{ badge.display_emoji|safe }}
+                                    {% elif badge.emoji %}
+                                        {{ badge.emoji }}
+                                    {% elif badge.emoji_class %}
+                                        <i class="{{ badge.emoji_class }}"></i>
+                                    {% else %}
+                                        <i class="{{ badge.icon }}"></i>
+                                    {% endif %}
+                                    <span class="ms-2">{{ badge.display_name }}</span>
+                                </div>
+                                <div class="badge-info">
+                                    <strong>{{ badge.display_name }}</strong>
+                                    <small class="text-muted d-block">{{ badge.description or 'Без описания' }}</small>
+                                    <div class="badge-meta mt-2">
+                                        <span class="badge bg-{{ 'primary' if badge.rarity == 'common' else 'success' if badge.rarity == 'uncommon' else 'warning' if badge.rarity == 'rare' else 'danger' if badge.rarity == 'epic' else 'info' if badge.rarity == 'legendary' else 'dark' }} me-1">{{ badge.rarity.title() }}</span>
+                                        <span class="text-muted">{{ badge.players_count }} игроков</span>
+                                        {% if not badge.is_active %}
+                                            <span class="badge bg-secondary ms-1">Неактивен</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="badge-actions mt-2">
+                                    <button class="btn btn-sm btn-outline-primary me-1" onclick="assignBadge({{ badge.id }})">
+                                        <i class="fas fa-user-plus"></i> Назначить
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning me-1" onclick="editBadge({{ badge.id }})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    {% if badge.is_active %}
+                                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="toggleBadge({{ badge.id }}, false)">
+                                            <i class="fas fa-eye-slash"></i>
+                                        </button>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-outline-success me-1" onclick="toggleBadge({{ badge.id }}, true)">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    {% endif %}
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteBadge({{ badge.id }})">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-medal fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">Нет созданных бейджей</h5>
+                        <p class="text-muted">Создайте первый бейдж, используя форму выше</p>
+                        <button class="btn btn-primary" onclick="document.getElementById('badge_display_name').focus()">
+                            <i class="fas fa-plus me-2"></i>Создать первый бейдж
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Badge management functions
+function assignBadge(badgeId) {
+    const nickname = prompt('Введите никнейм игрока для назначения бейджа:');
+    if (!nickname) return;
+
+    fetch('/admin/assign_badge', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `badge_id=${badgeId}&player_nickname=${encodeURIComponent(nickname)}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+        } else {
+            showToast(data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Произошла ошибка при назначении бейджа', 'error');
+    });
+}
+
+function editBadge(badgeId) {
+    // Implement edit functionality
+    showToast('Функция редактирования в разработке', 'info');
+}
+
+function toggleBadge(badgeId, isActive) {
+    fetch('/admin/toggle_badge', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `badge_id=${badgeId}&is_active=${isActive}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            location.reload();
+        } else {
+            showToast(data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Произошла ошибка', 'error');
+    });
+}
+
+function deleteBadge(badgeId) {
+    if (!confirm('Вы уверены, что хотите удалить этот бейдж? Это действие нельзя отменить.')) {
+        return;
+    }
+
+    fetch('/admin/delete_badge', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `badge_id=${badgeId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            location.reload();
+        } else {
+            showToast(data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Произошла ошибка при удалении бейджа', 'error');
+    });
+}
+
+// Update emoji preview
+document.addEventListener('DOMContentLoaded', function() {
+    const emojiInput = document.getElementById('badge_emoji');
+    const iconSelect = document.getElementById('badge_icon');
+    const emojiClassInput = document.getElementById('badge_emoji_class');
+
+    function updatePreview() {
+        const preview = document.getElementById('badge_preview');
+        if (!preview) return;
+
+        const display = preview.querySelector('.badge-display');
+        if (!display) return;
+
+        // Update emoji
+        let emojiDisplay = '';
+        if (emojiInput && emojiInput.value) {
+            emojiDisplay = emojiInput.value;
+        } else if (emojiClassInput && emojiClassInput.value) {
+            emojiDisplay = `<i class="${emojiClassInput.value}"></i>`;
+        } else if (iconSelect && iconSelect.value) {
+            emojiDisplay = `<i class="${iconSelect.value}"></i>`;
+        }
+
+        const emojiDisplayEl = display.querySelector('.emoji-display');
+        const nameDisplayEl = display.querySelector('.name-display');
+
+        if (emojiDisplayEl) emojiDisplayEl.innerHTML = emojiDisplay;
+        if (nameDisplayEl) {
+            const nameInput = document.getElementById('badge_display_name');
+            nameDisplayEl.textContent = (nameInput ? nameInput.value : '') || 'Предварительный просмотр';
+        }
+    }
+
+    // Add event listeners
+    emojiInput?.addEventListener('input', updatePreview);
+    iconSelect?.addEventListener('change', updatePreview);
+    emojiClassInput?.addEventListener('input', updatePreview);
+    document.getElementById('badge_display_name')?.addEventListener('input', updatePreview);
+
+    // Color inputs
+    document.getElementById('badge_color')?.addEventListener('input', function() {
+        const preview = document.getElementById('badge_preview');
+        if (preview) {
+            const display = preview.querySelector('.badge-display');
+            if (display) display.style.color = this.value;
+        }
+    });
+
+    document.getElementById('badge_background_color')?.addEventListener('input', function() {
+        const preview = document.getElementById('badge_preview');
+        if (preview) {
+            const display = preview.querySelector('.badge-display');
+            if (display) display.style.backgroundColor = this.value;
+        }
+    });
+
+    document.getElementById('badge_border_color')?.addEventListener('input', function() {
+        const preview = document.getElementById('badge_preview');
+        if (preview) {
+            const display = preview.querySelector('.badge-display');
+            if (display) display.style.borderColor = this.value;
+        }
+    });
+
+    // Initialize preview
+    updatePreview();
+});
+</script>
+{% endblock %}
